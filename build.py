@@ -1,21 +1,30 @@
 """
 Cach dung:
-  python build.py "path/to/letter.docx" "https://script.google.com/macros/s/.../exec"
+  python build.py <file.docx> <apps_script_url> [ten_trang]
 
-Sau khi chay xong, deploy len GitHub Pages:
-  git add index.html && git commit -m "update letter" && git push
+Vi du:
+  python build.py letter.docx "https://script.google.com/.../exec" teacher
+  python build.py letter.docx "https://script.google.com/.../exec" boss
+
+Ket qua:
+  teacher.html -> https://huoucaoco.github.io/recommendation-signer/teacher.html
+  boss.html    -> https://huoucaoco.github.io/recommendation-signer/boss.html
+
+Neu khong truyen ten_trang, mac dinh la index.html
 """
 
 import base64, sys, os
 
 if len(sys.argv) < 3:
-    print('Cach dung: python build.py <file.docx> <apps_script_url>')
+    print('Cach dung: python build.py <file.docx> <apps_script_url> [ten_trang]')
     print('  file.docx        - File Word noi dung thu')
     print('  apps_script_url  - URL cua Google Apps Script')
+    print('  ten_trang        - Ten trang (vd: teacher, boss). Mac dinh: index')
     sys.exit(1)
 
 docx_path = sys.argv[1]
 apps_url = sys.argv[2]
+page_name = sys.argv[3] if len(sys.argv) > 3 else 'index'
 
 if not os.path.exists(docx_path):
     print(f'Khong tim thay file: {docx_path}')
@@ -110,7 +119,7 @@ body { font-family: Arial, sans-serif; background: #f0f2f5; padding: 20px; color
   <div class="doc-loading">&#272;ang t&#7843;i n&#7897;i dung th&#432;...</div>
 </div>
 
-<div class="section-title">Ch&#7919; k&#253;</div>
+<div class="section-title">Ch&#7919; k&#253; (b&#7855;t bu&#7897;c)</div>
 <div class="form-card">
   <div class="sig-wrapper">
     <canvas id="signature-canvas"></canvas>
@@ -122,25 +131,22 @@ body { font-family: Arial, sans-serif; background: #f0f2f5; padding: 20px; color
   <div class="sig-actions">
     <button class="btn-clear" onclick="clearSignature()">&#10005; X&#243;a ch&#7919; k&#253;</button>
   </div>
-  <div class="error-msg" id="sig-error">Vui l&#242;ng k&#253; t&#234;n.</div>
+  <div class="error-msg" id="sig-error">Vui l&#242;ng k&#253; t&#234;n tr&#432;&#7899;c khi g&#7917;i.</div>
 </div>
 
-<div class="section-title">Th&#244;ng tin ng&#432;&#7901;i k&#253;</div>
+<div class="section-title">Th&#244;ng tin ng&#432;&#7901;i k&#253; <span style="font-weight:400;color:#999;">(kh&#244;ng b&#7855;t bu&#7897;c)</span></div>
 <div class="form-card">
   <div class="input-group">
     <label class="input-label" for="manager-name">H&#7885; v&#224; t&#234;n</label>
-    <input class="input-field" type="text" id="manager-name" placeholder="Nh&#7853;p h&#7885; v&#224; t&#234;n &#273;&#7847;y &#273;&#7911;...">
-    <div class="error-msg" id="name-error">Vui l&#242;ng nh&#7853;p h&#7885; v&#224; t&#234;n.</div>
+    <input class="input-field" type="text" id="manager-name" placeholder="Nh&#7853;p h&#7885; v&#224; t&#234;n...">
   </div>
   <div class="input-group">
     <label class="input-label" for="email-input">Email</label>
     <input class="input-field" type="email" id="email-input" placeholder="email@example.com">
-    <div class="error-msg" id="email-error">Vui l&#242;ng nh&#7853;p email h&#7907;p l&#7879;.</div>
   </div>
   <div class="input-group">
     <label class="input-label" for="phone-input">S&#7889; &#273;i&#7879;n tho&#7841;i</label>
     <input class="input-field" type="tel" id="phone-input" placeholder="+84 ...">
-    <div class="error-msg" id="phone-error">Vui l&#242;ng nh&#7853;p s&#7889; &#273;i&#7879;n tho&#7841;i.</div>
   </div>
 </div>
 
@@ -155,11 +161,10 @@ body { font-family: Arial, sans-serif; background: #f0f2f5; padding: 20px; color
 
 </div>
 <script>
-// === Config ===
 var TEMPLATE_B64 = '__TEMPLATE_B64__';
 var APPS_SCRIPT_URL = '__APPS_SCRIPT_URL__';
+var PAGE_NAME = '__PAGE_NAME__';
 
-// === Render DOCX via mammoth.js ===
 function base64ToArrayBuffer(b64) {
   var bstr = atob(b64);
   var u8 = new Uint8Array(bstr.length);
@@ -176,7 +181,6 @@ mammoth.convertToHtml({arrayBuffer: base64ToArrayBuffer(TEMPLATE_B64)})
       '<p style="color:red;">Loi tai noi dung: ' + err.message + '</p>';
   });
 
-// === Signature Pad ===
 var canvas = document.getElementById('signature-canvas');
 var signaturePad = new SignaturePad(canvas, {
   backgroundColor: 'rgba(255,255,255,0)',
@@ -202,27 +206,17 @@ function clearSignature() {
   document.getElementById('sig-placeholder').style.display = '';
 }
 
-// === Validation ===
-function validate() {
-  var ok = true;
-  function check(fail, id) {
-    var el = document.getElementById(id);
-    if (fail) { el.style.display = 'block'; ok = false; }
-    else { el.style.display = 'none'; }
-  }
-  check(signaturePad.isEmpty(), 'sig-error');
-  check(!document.getElementById('manager-name').value.trim(), 'name-error');
-  var em = document.getElementById('email-input').value.trim();
-  check(!em || em.indexOf('@') === -1, 'email-error');
-  check(!document.getElementById('phone-input').value.trim(), 'phone-error');
-  return ok;
-}
-
-// === Submit ===
 async function handleSubmit() {
-  if (!validate()) return;
-  if (!APPS_SCRIPT_URL) {
-    alert('Chua cau hinh Apps Script URL. Vui long lien he nguoi tao trang.');
+  // Only signature is required
+  var sigErr = document.getElementById('sig-error');
+  if (signaturePad.isEmpty()) {
+    sigErr.style.display = 'block';
+    return;
+  }
+  sigErr.style.display = 'none';
+
+  if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === 'CHUA_CAU_HINH') {
+    alert('Chua cau hinh Apps Script URL.');
     return;
   }
   var btn = document.getElementById('btn-submit');
@@ -230,6 +224,7 @@ async function handleSubmit() {
   btn.textContent = 'Dang gui...';
   try {
     var data = {
+      page: PAGE_NAME,
       name: document.getElementById('manager-name').value.trim(),
       email: document.getElementById('email-input').value.trim(),
       phone: document.getElementById('phone-input').value.trim(),
@@ -241,7 +236,6 @@ async function handleSubmit() {
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(data)
     });
-    // Hide form, show success
     document.querySelectorAll('.form-card, .section-title, .btn-submit').forEach(function(el) {
       el.style.display = 'none';
     });
@@ -257,14 +251,19 @@ async function handleSubmit() {
 </body>
 </html>"""
 
-html = HTML.replace('__TEMPLATE_B64__', b64).replace('__APPS_SCRIPT_URL__', apps_url)
+html = HTML.replace('__TEMPLATE_B64__', b64).replace('__APPS_SCRIPT_URL__', apps_url).replace('__PAGE_NAME__', page_name)
 
-# Write index.html in the same directory as build.py
 script_dir = os.path.dirname(os.path.abspath(__file__))
-output = os.path.join(script_dir, 'index.html')
+filename = page_name + '.html'
+output = os.path.join(script_dir, filename)
 
 with open(output, 'w', encoding='utf-8') as f:
     f.write(html)
 
-print(f'Da tao index.html ({len(html):,} bytes)')
-print(f'Deploy: git add index.html && git commit -m "update" && git push')
+print(f'Da tao {filename} ({len(html):,} bytes)')
+if page_name == 'index':
+    url = 'https://huoucaoco.github.io/recommendation-signer/'
+else:
+    url = f'https://huoucaoco.github.io/recommendation-signer/{filename}'
+print(f'Link: {url}')
+print(f'Deploy: git add {filename} && git commit -m "update {page_name}" && git push')

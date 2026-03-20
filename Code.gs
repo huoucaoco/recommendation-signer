@@ -18,8 +18,8 @@ function doPost(e) {
 
     // Tạo header nếu sheet trống
     if (sheet.getLastRow() === 0) {
-      sheet.appendRow(['Thời gian', 'Họ tên', 'Email', 'Số điện thoại', 'Link chữ ký']);
-      sheet.getRange(1, 1, 1, 5).setFontWeight('bold');
+      sheet.appendRow(['Thời gian', 'Trang', 'Họ tên', 'Email', 'Số điện thoại', 'Link chữ ký']);
+      sheet.getRange(1, 1, 1, 6).setFontWeight('bold');
     }
 
     // Lưu ảnh chữ ký lên Google Drive
@@ -27,7 +27,7 @@ function doPost(e) {
     var blob = Utilities.newBlob(
       Utilities.base64Decode(sigBase64),
       'image/png',
-      data.name.replace(/[^a-zA-Z0-9]/g, '_') + '_signature.png'
+      (data.page || 'unknown') + '_' + (data.name || 'anonymous').replace(/[^a-zA-Z0-9]/g, '_') + '_signature.png'
     );
     var file = DriveApp.createFile(blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
@@ -36,9 +36,10 @@ function doPost(e) {
     // Ghi dữ liệu vào sheet
     sheet.appendRow([
       new Date().toLocaleString('vi-VN'),
-      data.name,
-      data.email,
-      data.phone,
+      data.page || '',
+      data.name || '',
+      data.email || '',
+      data.phone || '',
       sigUrl
     ]);
 
